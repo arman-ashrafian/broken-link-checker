@@ -1,5 +1,9 @@
+import requests as re
 import json
+import asyncio
+import concurrent.futures
 from pprint import pprint
+
 
 class Crawler:
     def __init__(self, databaseName):
@@ -61,6 +65,15 @@ class Crawler:
         
         l = self.getLinks(data) 
 
+
+    def checkLink(self, l):
+        if l[0:3] == 'htt':
+            r = re.get(l)
+            print(l, end="  --  ")
+            print(r.status_code)
+
 c = Crawler('database.json')
-pprint(c.links)
-print(len(c.links))
+f = open("links.txt", "w")
+for l in c.links:
+    f.write(l)
+    f.write('\n')
