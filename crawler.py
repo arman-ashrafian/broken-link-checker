@@ -1,35 +1,28 @@
-# Crawl through computing paths and get the URL
-# for every element with a src attribute. 
-
 import json
 from pprint import pprint
 
-def readDatabase(databaseName):
-    links = []
-    with open(databaseName, encoding='utf-8') as f:
-        data = json.load(f)
-    
+class Crawler:
+    def __init__(self, databaseName):
+        self.links = []
+        self.databaseName = databaseName
+        self.readDatabase()
+
+    def getLinks(self, dic):
+        # get links in stories table
+        for x in dic['stories']:
+            if isinstance(x, dict):
+                if x['link']:
+                    self.links.append(x['link'])
+
+        # get links in majors table
+
+
+    def readDatabase(self):
+        with open(self.databaseName, encoding='utf-8') as f:
+            data = json.load(f)
         
-    for x in data:
+        l = self.getLinks(data) 
 
-        for y in data[x]:
-            link = None
-            if isinstance(y, dict):
-                link = y.get('link')
-            if link: print(link)
-
-            for z in y:
-                link2 = None
-                if isinstance(z, dict):
-                    link2 = z.get('link')
-                if link2: print(link2)
-
-
-
-    return links
-
-links = readDatabase('database.json')
-print(links)
-for i in range(len(links)):
-    print(i, ' ', end="")
-    print(links[i])
+c = Crawler('database.json')
+pprint(c.links)
+print(len(c.links))
