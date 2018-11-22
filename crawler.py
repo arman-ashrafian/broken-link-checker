@@ -1,9 +1,7 @@
+#!/usr/bin/python3
+
 import requests as re
 import json
-import asyncio
-import concurrent.futures
-from pprint import pprint
-
 
 class Crawler:
     def __init__(self, databaseName):
@@ -72,8 +70,13 @@ class Crawler:
             print(l, end="  --  ")
             print(r.status_code)
 
-c = Crawler('database.json')
-f = open("links.txt", "w")
-for l in c.links:
-    f.write(l)
-    f.write('\n')
+def main():
+    c = Crawler('database.json')
+    f = open("links.txt", "w")
+    c.links = set(c.links) # remove duplicates
+    for l in c.links:
+        f.write(l)
+        f.write('\n')
+
+if __name__ == '__main__':
+    main()

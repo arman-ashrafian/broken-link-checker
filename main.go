@@ -8,6 +8,8 @@ import (
 )
 
 func main() {
+	const baseURL = "http://computingpaths.ucsd.edu"
+
 	var links []string
 	fmt.Println("Checking Broken Links")
 	fmt.Println("---------------------")
@@ -25,17 +27,30 @@ func main() {
 
 	ch := make(chan string)
 	for _, l := range links {
-		if l[0:3] == "htt" {
-			go makeRequest(l, ch)
+		if l[0] == '/' {
+			l = baseURL + l
+		} else if l[0:4] != "http" {
+			l = baseURL + "/" + l
 		}
+		go makeRequest(l, ch)
 	}
 
-	for _ = range links {
-		fmt.Println(<-ch)
+	for x := 0; x < 1000; x++ {
+		v, ok := <-ch
+		if !ok {
+			break
+		}
+		fmt.Printf("%d --", x)
+		fmt.Println(v)
 	}
+	fmt.Println("done")
 }
 
 func makeRequest(link string, ch chan<- string) {
-	resp, _ := http.Get(link)
+	resp, err := http.Get(link)
+	if err != nil || resp.StatusCode != 200 {
+		ch <- fmt.Sprintf("%s  --  ERROR", link)
+		return
+	}
 	ch <- fmt.Sprintf("%s  --  %s", link, resp.Status)
 }
