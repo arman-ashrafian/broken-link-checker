@@ -7,19 +7,18 @@ import (
 	"os"
 )
 
-type responseObj struct {
+// info to output from HTTP GET request
+type responseInfo struct {
 	link   string
 	status int
 }
 
-func main() {
-	const baseURL = "http://computingpaths.ucsd.edu"
+const baseURL = "http://computingpaths.ucsd.edu"
 
-	var links []string
-	fmt.Println("Checking Broken Links")
-	fmt.Println("---------------------")
+var links []string
 
-	file, err := os.Open("links.txt")
+func readLinksFromFile(filename string) {
+	file, err := os.Open(filename)
 	if err != nil {
 		panic(err)
 	}
@@ -29,8 +28,32 @@ func main() {
 	for scanner.Scan() {
 		links = append(links, scanner.Text())
 	}
+}
 
-	ch := make(chan *responseObj)
+func makeRequest(link string, ch chan<- *responseInfo) {
+	resp, err := http.Get(link)
+	info := new(responseInfo)
+	info.link = link
+
+	if err != nil || resp.StatusCode != 200 {
+		info.status = -1
+		ch <- info
+		return
+	}
+	info.status = 200
+	ch <- info
+}
+
+func main() {
+	fmt.Println("Checking Broken Links")
+	fmt.Println("---------------------")
+
+	readLinksFromFile("links.txt")
+
+	// sync responses from all GET requests
+	ch := make(chan *responseInfo)
+
+	// make GET requests
 	for _, l := range links {
 		if l[0] == '/' {
 			l = baseURL + l
@@ -40,25 +63,12 @@ func main() {
 		go makeRequest(l, ch)
 	}
 
+	// display failed requests
 	for x := 0; x < len(links); x++ {
 		v := <-ch
 		if v.status != 200 {
 			fmt.Printf("|%s| %-6s\n", "ERROR", v.link)
 		}
 	}
-	fmt.Println("done")
-}
-
-func makeRequest(link string, ch chan<- *responseObj) {
-	resp, err := http.Get(link)
-	respObj := new(responseObj)
-	respObj.link = link
-
-	if err != nil || resp.StatusCode != 200 {
-		respObj.status = -1
-		ch <- respObj
-		return
-	}
-	respObj.status = 200
-	ch <- respObj
+	fmt.Println(" DONE")
 }
