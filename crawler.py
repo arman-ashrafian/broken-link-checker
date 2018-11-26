@@ -1,7 +1,10 @@
-#!/usr/bin/python3
+#!/usr/bin/python3.7
 
 import requests as re
 import json
+import asyncio as aio
+import time
+
 
 class Link:
     def __init__(self, url, parents):
@@ -108,9 +111,6 @@ class Crawler:
     def readDatabase(self):
         with open(self.databaseName, encoding='utf-8') as f:
             self.data = json.load(f)
-        
-        l = self.getLinks_Orgs(self.data) 
-
 
     def checkLink(self, l):
         if l[0:3] == 'htt':
@@ -118,13 +118,31 @@ class Crawler:
             print(l, end="  --  ")
             print(r.status_code)
 
-def main():
+async def GET(url):
+    l = re.get(url)
+    print(url)
+    print("status: " + str(l.status_code))
+    print()
+
+async def main():
     c = Crawler('database.json')
-    f = open("links.txt", "w")
-    c.links = set(c.links) # remove duplicates
+    task = []
     for l in c.links:
-        f.write(str(l))
-        f.write('\n')
+        task.append(aio.create_task(GET(l.url)))
+    
+    for t in task:
+        await t
+    
+def slowmain():
+    c = Crawler('database.json')
+    task = []
+    for l in c.links:
+        GET(l.url)
+    
 
 if __name__ == '__main__':
-    main()
+    start = time.time()
+    aio.run(main())
+    #slowmain()
+    end = time.time()
+    print("time: " + str(end-start))
