@@ -86,13 +86,16 @@ func main() {
 		cache[l] = true
 	}
 
-	// display failed requests
+	// display failed requests and url to file
+	f, _ := os.Create("deadlinks.txt")
+	defer f.Close()
 	for x := 0; x < len(links)-repeatedLinks; x++ {
 		v := <-ch
 		if v.status == 200 {
 			continue
 		}
 		fmt.Printf("|%-3d| %-6s\n", v.status, v.link)
+		fmt.Fprintf(f, "%s\n", v.link)
 	}
 	fmt.Println(" DONE")
 }

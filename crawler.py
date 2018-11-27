@@ -2,7 +2,8 @@
 
 import json
 import time
-
+import subprocess as sub
+import os
 
 class Link:
     def __init__(self, url, parents):
@@ -18,6 +19,7 @@ class Crawler:
         self.links = []
         self.databaseName = databaseName
         self.readDatabase()
+
         # get links from DB and add to links[]
         self.getLinks_Stories(self.data)
         self.getLinks_Majors(self.data) 
@@ -119,13 +121,38 @@ class Crawler:
         with open(self.databaseName, encoding='utf-8') as f:
             self.data = json.load(f)
 
+def promptUserToChangeDeadLinks():
+    deadlinks = []
+    with open('deadlinks.txt', 'r') as fi:
+        line = fi.readline()
+        while line:
+            deadlinks.append(line[0:-1])
+            line = fi.readline()
+    
+    print("    Replace Links")
+    print("---------------------")
+    print(" Leave blank to skip\n")
+    for l in deadlinks:
+        print(l)
+        resp = input("replace: ")
+        print()
+
 def main():
     c = Crawler('database.json')
     f = open("links.txt", "w")
     for l in c.links:
         f.write(l.url)
         f.write('\n')
+    f.close()    
 
+    sub.call('./checklinks')
+    print("\n")
+    promptUserToChangeDeadLinks()
+    
+    # clean up
+    os.system('rm links.txt')
+    os.system('rm deadlinks.txt')
+    
 if __name__ == '__main__':
     main()
 
