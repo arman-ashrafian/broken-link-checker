@@ -33,7 +33,7 @@ func readLinksFromFile(filename string) {
 }
 
 func makeRequest(link string, ch chan<- *responseInfo) {
-	timeout := time.Duration(time.Second * 7)
+	timeout := time.Duration(time.Second * 10)
 	client := http.Client{
 		Timeout: timeout,
 	}
