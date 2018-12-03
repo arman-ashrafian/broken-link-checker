@@ -1,10 +1,9 @@
 #!/usr/bin/python3.7
 
-import requests as re
 import json
-import asyncio as aio
 import time
-
+import subprocess as sub
+import os
 
 class Link:
     def __init__(self, url, parents):
@@ -20,6 +19,16 @@ class Crawler:
         self.links = []
         self.databaseName = databaseName
         self.readDatabase()
+
+        # get links from DB and add to links[]
+        self.getLinks_Stories(self.data)
+        self.getLinks_Majors(self.data) 
+        self.getLinks_Departments(self.data)
+        self.getLinks_Resources(self.data)
+        self.getLinks_ResourceBanner(self.data)
+        self.getLinks_Projects(self.data)
+        self.getLinks_Orgs(self.data)
+
 
     def getLinks_Stories(self, dic):
         # get links in stories table
@@ -112,37 +121,38 @@ class Crawler:
         with open(self.databaseName, encoding='utf-8') as f:
             self.data = json.load(f)
 
-    def checkLink(self, l):
-        if l[0:3] == 'htt':
-            r = re.get(l)
-            print(l, end="  --  ")
-            print(r.status_code)
+def promptUserToChangeDeadLinks():
+    deadlinks = []
+    with open('deadlinks.txt', 'r') as fi:
+        line = fi.readline()
+        while line:
+            deadlinks.append(line[0:-1])
+            line = fi.readline()
+    
+    print("    Replace Links")
+    print("---------------------")
+    print(" Leave blank to skip\n")
+    for l in deadlinks:
+        print(l)
+        resp = input("replace: ")
+        print()
 
-async def GET(url):
-    l = re.get(url)
-    print(url)
-    print("status: " + str(l.status_code))
-    print()
-
-async def main():
+def main():
     c = Crawler('database.json')
-    task = []
+    f = open("links.txt", "w")
     for l in c.links:
-        task.append(aio.create_task(GET(l.url)))
-    
-    for t in task:
-        await t
-    
-def slowmain():
-    c = Crawler('database.json')
-    task = []
-    for l in c.links:
-        GET(l.url)
-    
+        f.write(l.url)
+        f.write('\n')
+    f.close()    
 
+    sub.call('./checklinks')
+    print("\n")
+    promptUserToChangeDeadLinks()
+    
+    # clean up
+    os.system('rm links.txt')
+    os.system('rm deadlinks.txt')
+    
 if __name__ == '__main__':
-    start = time.time()
-    aio.run(main())
-    #slowmain()
-    end = time.time()
-    print("time: " + str(end-start))
+    main()
+
