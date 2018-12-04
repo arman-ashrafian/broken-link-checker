@@ -4,6 +4,8 @@ import json
 import time
 import subprocess as sub
 import os
+import concurrent.futures
+import urllib.request
 
 class Link:
     def __init__(self, url, parents):
@@ -121,38 +123,42 @@ class Crawler:
         with open(self.databaseName, encoding='utf-8') as f:
             self.data = json.load(f)
 
-def promptUserToChangeDeadLinks():
-    deadlinks = []
-    with open('deadlinks.txt', 'r') as fi:
-        line = fi.readline()
-        while line:
-            deadlinks.append(line[0:-1])
-            line = fi.readline()
-    
-    print("    Replace Links")
-    print("---------------------")
-    print(" Leave blank to skip\n")
-    for l in deadlinks:
-        print(l)
-        resp = input("replace: ")
-        print()
+    # Retrieve a single page and report the URL and contents
+    def load_url(self, url, timeout):
+        with urllib.request.urlopen(url, timeout=timeout) as conn:
+            return conn.getcode()
+
+    def checkLinks(self):
+        BASE_URL = "http://computingpaths.ucsd.edu"
+        # create list of full urls
+        full_urls = []
+        for l in self.links:
+            if l.url[0] == '/':
+                l.url = BASE_URL + l.url
+            elif l.url[0:4] != "http":
+                l.url = BASE_URL + "/" + l.url
+            full_urls.append(l.url.replace(' ', '%20'))
+
+        # with statement to ensure threads are cleaned up promptly
+        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
+            # Start the load operations and mark each future with its URL
+            future_to_url = {executor.submit(self.load_url, l, 60): l for l in full_urls}
+            for future in concurrent.futures.as_completed(future_to_url):
+                url = future_to_url[future]
+                try:
+                    data = future.result()
+                except Exception as exc:
+                    print('Error: %r --- %s' % (url, exc))
+                #else:
+                #    print('%r ---- %d' % (url, data))
+         
+        
 
 def main():
     c = Crawler('database.json')
-    f = open("links.txt", "w")
-    for l in c.links:
-        f.write(l.url)
-        f.write('\n')
-    f.close()    
-
-    sub.call('./checklinks')
-    print("\n")
-    promptUserToChangeDeadLinks()
+    c.checkLinks() 
     
-    # clean up
-    os.system('rm links.txt')
-    os.system('rm deadlinks.txt')
-    
+        
 if __name__ == '__main__':
     main()
 
