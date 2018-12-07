@@ -2,10 +2,8 @@
 
 import json
 import time
-import subprocess as sub
 import os
-import concurrent.futures
-import urllib.request
+import grequests as gr # for concurrent http requests
 
 class Link:
     def __init__(self, url, parents):
@@ -23,30 +21,30 @@ class Crawler:
         self.readDatabase()
 
         # get links from DB and add to links[]
-        self.getLinks_Stories(self.data)
-        self.getLinks_Majors(self.data) 
-        self.getLinks_Departments(self.data)
-        self.getLinks_Resources(self.data)
-        self.getLinks_ResourceBanner(self.data)
-        self.getLinks_Projects(self.data)
-        self.getLinks_Orgs(self.data)
+        self.getLinks_Stories()
+        self.getLinks_Majors() 
+        self.getLinks_Departments()
+        self.getLinks_Resources()
+        self.getLinks_ResourceBanner()
+        self.getLinks_Projects()
+        self.getLinks_Orgs()
 
 
-    def getLinks_Stories(self, dic):
+    def getLinks_Stories(self):
         # get links in stories table
         i = 0
-        for x in dic['stories']:
+        for x in self.data['stories']:
             if isinstance(x, dict):
                 if x['link']:
                     l = Link(x['link'], ['stories', i, 'link'])
                     self.links.append(l)
             i += 1
     
-    def getLinks_Majors(self, dic):
+    def getLinks_Majors(self):
         # get links in majors table
         i = 0
         j = 0
-        for x in dic['majors']:
+        for x in self.data['majors']:
             # check image links
             l = Link(x.get('image'), ['majors', i, 'image'])
             self.links.append(l)
@@ -59,16 +57,16 @@ class Crawler:
                     j += 1
             i += 1
 
-    def getLinks_Departments(self, dic):
+    def getLinks_Departments(self):
         # get links in departments table
-        for x in dic['departments']:
-            l = Link(dic['departments'][x]['link'], ['departments', x, 'link'])
+        for x in self.data['departments']:
+            l = Link(self.data['departments'][x]['link'], ['departments', x, 'link'])
             self.links.append(l)
 
-    def getLinks_Resources(self, dic):
+    def getLinks_Resources(self):
         # get links in resources table
         i = 0
-        for x in dic['resources']:
+        for x in self.data['resources']:
             if x.get('mapImage'):
                 l = Link(x.get('mapImage'), ['resources', i, 'mapImage'])
                 self.links.append(l)
@@ -80,10 +78,10 @@ class Crawler:
                 self.links.append(l)
             i += 1 
         
-    def getLinks_ResourceBanner(self, dic):
+    def getLinks_ResourceBanner(self):
         # get links in resourceBanner table
         i = 0
-        for x in dic['resourceBanner']:
+        for x in self.data['resourceBanner']:
             img = x.get('image')
             link = x.get('link')
             if img: 
@@ -94,11 +92,11 @@ class Crawler:
                 self.links.append(l)
             i += 1
 
-    def getLinks_Projects(self, dic):
+    def getLinks_Projects(self):
         # get links in projects table
         i = 0
         j = 0
-        for x in dic['projects']:
+        for x in self.data['projects']:
             j = 0
             for v in x.get('videos'):
                 l = Link(v, ['projects', i, 'videos', j])
@@ -109,10 +107,10 @@ class Crawler:
                 self.links.append(l)
             i += 1
 
-    def getLinks_Orgs(self, dic):
+    def getLinks_Orgs(self):
         # get links in orgs table
         i = 0
-        for x in dic['orgs']:
+        for x in self.data['orgs']:
             linkurl = x.get('link')
             if linkurl:
                 l = Link(linkurl, ['orgs', i, 'link'])
@@ -123,41 +121,34 @@ class Crawler:
         with open(self.databaseName, encoding='utf-8') as f:
             self.data = json.load(f)
 
-    # Retrieve a single page and report the URL and contents
-    def load_url(self, url, timeout):
-        with urllib.request.urlopen(url, timeout=timeout) as conn:
-            return conn.getcode()
+    def requestExceptionHandler(self, request, exception):
+        print('%s timeout failure' % request.url)
 
     def checkLinks(self):
-        BASE_URL = "http://computingpaths.ucsd.edu"
-        # create list of full urls
-        full_urls = []
+        # make sure all urls are in the form http://...
+        BASE_PATH = 'http://computingpaths.ucsd.edu'
+        urls = []
         for l in self.links:
-            if l.url[0] == '/':
-                l.url = BASE_URL + l.url
-            elif l.url[0:4] != "http":
-                l.url = BASE_URL + "/" + l.url
-            full_urls.append(l.url.replace(' ', '%20'))
-
-        # with statement to ensure threads are cleaned up promptly
-        with concurrent.futures.ThreadPoolExecutor(max_workers=5) as executor:
-            # Start the load operations and mark each future with its URL
-            future_to_url = {executor.submit(self.load_url, l, 60): l for l in full_urls}
-            for future in concurrent.futures.as_completed(future_to_url):
-                url = future_to_url[future]
-                try:
-                    data = future.result()
-                except Exception as exc:
-                    print('Error: %r --- %s' % (url, exc))
-                #else:
-                #    print('%r ---- %d' % (url, data))
-         
+            if l.url == '/':
+                l.url = BASE_PATH + l.url
+            elif l.url[0:4] != 'http':
+                l.url = BASE_PATH + '/' + l.url
+            urls.append(l.url)
+        # remove duplicates
+        urls = set(urls)
         
+        # unsent requests
+        reqs = (gr.get(url) for url in urls)
+        responses = gr.map(reqs, exception_handler=self.requestExceptionHandler)
+        for r in responses:
+            if r == None:
+                print("Error")
+            elif r.status_code != 200:
+                print('[%d] %s' % (r.status_code, r.url))
 
 def main():
     c = Crawler('database.json')
-    c.checkLinks() 
-    
+    c.checkLinks()
         
 if __name__ == '__main__':
     main()
