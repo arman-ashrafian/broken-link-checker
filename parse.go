@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -8,9 +9,11 @@ import (
 )
 
 type DB struct {
-	Pages   []Page  `json:"pages"`
-	Stories []Story `json:"stories"`
-	Majors  []Major `json:"majors"`
+	Pages       []Page      `json:"pages"`
+	Stories     []Story     `json:"stories"`
+	Majors      []Major     `json:"majors"`
+	Departments Departments `json:"departments"`
+	Resources   []Resource  `json:"resources"`
 }
 
 type Page struct {
@@ -32,9 +35,24 @@ type Major struct {
 }
 
 type MajorMoreInfo struct {
-	Name string
-	Link string
+	Name string `json:"name"`
+	Link string `json:"link"`
 }
+
+type Departments map[string]interface{}
+type Department struct {
+	Name string `json:"name"`
+	Link string `json:"link"`
+}
+
+type Resource struct {
+	Name     string `json:"name"`
+	MapImage string `json:"mapImage,omitempty"`
+	MapLink  string `json:"mapLink,omitempty"`
+	Link     string `json:"link"`
+}
+
+var db DB = parse()
 
 func parse() DB {
 	jsonfile, err := os.Open("database.json")
@@ -52,7 +70,6 @@ func parse() DB {
 }
 
 func getLinks() []string {
-	db := parse()
 	var links []string
 
 	for _, p := range db.Pages {
@@ -68,13 +85,84 @@ func getLinks() []string {
 			links = append(links, info.Link)
 		}
 	}
+	for _, v := range db.Departments {
+		links = append(links, v.(map[string]interface{})["link"].(string))
+	}
+	for _, r := range db.Resources {
+		links = append(links, r.Link)
+		links = append(links, r.MapLink)
+		links = append(links, r.MapImage)
+	}
+
 	return links
 }
 
-func main() {
-	links := getLinks()
-	for _, l := range links {
-		fmt.Println(l)
+func prettyPrint(v interface{}) (err error) {
+	b, err := json.MarshalIndent(v, "", "  ")
+	if err == nil {
+		fmt.Println(string(b))
 	}
-	fmt.Println(len(links))
+	return
+}
+
+func updateLink(brokenLink string) {
+	// check if brokenLink is in Pages
+	for i, p := range db.Pages {
+		link := normalizeLink(p.Link)
+		if link == brokenLink {
+			newLink := promptUserForUpdate(p, brokenLink)
+			db.Pages[i].Link = newLink
+		}
+
+	}
+
+	// check if brokenLink is in Stories
+	for _, s := range db.Stories {
+		link := normalizeLink(s.Link)
+		image := normalizeLink(s.Image)
+		if link == brokenLink {
+			newLink := promptUserForUpdate(s, brokenLink)
+			s.Link = newLink
+		}
+		if image == brokenLink {
+			newLink := promptUserForUpdate(s, brokenLink)
+			s.Image = newLink
+		}
+	}
+
+	// check if brokenLink is in Majors
+	for _, m := range db.Majors {
+		image := normalizeLink(m.Image)
+		if image == brokenLink {
+			newLink := promptUserForUpdate(m, brokenLink)
+			m.Image = newLink
+		}
+		for _, info := range m.MoreInfo {
+			link := normalizeLink(info.Link)
+			if link == brokenLink {
+				newLink := promptUserForUpdate(m, brokenLink)
+				info.Link = newLink
+			}
+		}
+	}
+}
+
+func promptUserForUpdate(data interface{}, brokenLink string) string {
+	reader := bufio.NewReader(os.Stdin)
+
+	fmt.Println()
+	prettyPrint(data)
+	fmt.Println()
+
+	fmt.Printf("Broken Link: %s\n", brokenLink)
+
+	fmt.Print("update link: ")
+	resp, _ := reader.ReadString('\n')
+	resp = resp[:len(resp)-2] // remove '\n'
+
+	if resp == "x\n" || resp == "X\n" {
+		return ""
+	}
+
+	return resp
 }
