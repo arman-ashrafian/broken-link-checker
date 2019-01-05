@@ -1,10 +1,8 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"net/http"
-	"os"
 	"time"
 )
 
@@ -16,21 +14,8 @@ type responseInfo struct {
 
 const baseURL = "http://computingpaths.ucsd.edu"
 
-var links []string
+var brokenLinks []string
 var repeatedLinks int // count repeats
-
-func readLinksFromFile(filename string) {
-	file, err := os.Open(filename)
-	if err != nil {
-		panic(err)
-	}
-	defer file.Close()
-
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		links = append(links, scanner.Text())
-	}
-}
 
 func makeRequest(link string, ch chan<- *responseInfo) {
 	timeout := time.Duration(time.Second * 10)
@@ -54,26 +39,40 @@ func makeRequest(link string, ch chan<- *responseInfo) {
 	ch <- info
 }
 
-func main() {
+func normalizeLink(l string) string {
+	if l == "" {
+		return ""
+	}
+
+	if l[0] == '/' {
+		l = baseURL + l
+	} else if l[0:4] != "http" {
+		l = baseURL + "/" + l
+	}
+	return l
+}
+
+func checkLinks() {
 	cache := make(map[string]bool)
 	repeatedLinks = 0
 
 	fmt.Println("Checking Links")
 	fmt.Println("--------------")
 
-	readLinksFromFile("links.txt")
+	links := getLinks()
 
 	// sync responses from all GET requests
 	ch := make(chan *responseInfo)
 
 	// make GET requests
 	for _, l := range links {
-
-		if l[0] == '/' {
-			l = baseURL + l
-		} else if l[0:4] != "http" {
-			l = baseURL + "/" + l
+		if l == "" {
+			repeatedLinks += 1
+			continue
 		}
+
+		// add basepath to link if not there
+		l = normalizeLink(l)
 
 		// skip to next iteration if link has already been checked
 		_, ok := cache[l]
@@ -86,16 +85,17 @@ func main() {
 		cache[l] = true
 	}
 
-	// display failed requests and url to file
-	f, _ := os.Create("deadlinks.txt")
-	defer f.Close()
+	// display failed requests
 	for x := 0; x < len(links)-repeatedLinks; x++ {
 		v := <-ch
-		if v.status == 200 {
-			continue
+		if v.status != 200 {
+			fmt.Printf("|%-3d| %-6s\n", v.status, v.link)
+			brokenLinks = append(brokenLinks, v.link)
 		}
-		fmt.Printf("|%-3d| %-6s\n", v.status, v.link)
-		fmt.Fprintf(f, "%s\n", v.link)
 	}
-	fmt.Println(" DONE")
+	fmt.Println("...DONE")
+}
+
+func main() {
+	getLinks()
 }
