@@ -9,11 +9,13 @@ import (
 )
 
 type DB struct {
-	Pages       []Page      `json:"pages"`
-	Stories     []Story     `json:"stories"`
-	Majors      []Major     `json:"majors"`
-	Departments Departments `json:"departments"`
-	Resources   []Resource  `json:"resources"`
+	Pages          []Page      `json:"pages"`
+	Stories        []Story     `json:"stories"`
+	Majors         []Major     `json:"majors"`
+	Departments    Departments `json:"departments"`
+	Resources      []Resource  `json:"resources"`
+	ResourceBanner []ResBanner `json:"resourceBanner"`
+	Projects       []Project   `json:"projects"`
 }
 
 type Page struct {
@@ -50,6 +52,19 @@ type Resource struct {
 	MapImage string `json:"mapImage,omitempty"`
 	MapLink  string `json:"mapLink,omitempty"`
 	Link     string `json:"link"`
+}
+
+type ResBanner struct {
+	Name  string `json:"name"`
+	Image string `json:"image"`
+	Link  string `json:"link"`
+}
+
+type Project struct {
+	Name   string   `json:"name"`
+	Images []string `json:"images"`
+	Videos []string `json:"videos"`
+	Link   string   `json:"link"`
 }
 
 var db DB = parse()
@@ -92,6 +107,10 @@ func getLinks() []string {
 		links = append(links, r.Link)
 		links = append(links, r.MapLink)
 		links = append(links, r.MapImage)
+	}
+	for _, b := range db.ResourceBanner {
+		links = append(links, r.Image)
+		links = append(links, r.Link)
 	}
 
 	return links

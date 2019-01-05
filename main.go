@@ -97,12 +97,5 @@ func checkLinks() {
 }
 
 func main() {
-	/*checkLinks()
-	for _, s := range brokenLinks {
-		updateLink(s)
-	}
-	*/
-
-	updateLink("http://computingpaths.ucsd.edu/stories.html")
-	prettyPrint(db.Pages)
+	getLinks()
 }
