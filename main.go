@@ -97,5 +97,8 @@ func checkLinks() {
 }
 
 func main() {
-	getLinks()
+	updateLink("http://computingpaths.ucsd.edu/stories.html")
+	updateLink("https://www.youtube.com/watch?v=AAcQylywrYE")
+	updateLink("http://www.be.ucsd.edu/bioinformatics")
+	saveDBToFile("database_out.json", db)
 }

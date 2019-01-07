@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"strings"
 )
 
 type DB struct {
@@ -109,8 +110,8 @@ func getLinks() []string {
 		links = append(links, r.MapImage)
 	}
 	for _, b := range db.ResourceBanner {
-		links = append(links, r.Image)
-		links = append(links, r.Link)
+		links = append(links, b.Image)
+		links = append(links, b.Link)
 	}
 
 	return links
@@ -128,44 +129,42 @@ func updateLink(brokenLink string) {
 	// check if brokenLink is in Pages
 	for i, p := range db.Pages {
 		link := normalizeLink(p.Link)
-		if link == brokenLink {
-			newLink := promptUserForUpdate(p, brokenLink)
-			db.Pages[i].Link = newLink
-		}
-
+		checkLinkAndUpdate(link, brokenLink, p, &db.Pages[i].Link)
 	}
 
 	// check if brokenLink is in Stories
-	for _, s := range db.Stories {
+	for i, s := range db.Stories {
 		link := normalizeLink(s.Link)
 		image := normalizeLink(s.Image)
-		if link == brokenLink {
-			newLink := promptUserForUpdate(s, brokenLink)
-			s.Link = newLink
-		}
-		if image == brokenLink {
-			newLink := promptUserForUpdate(s, brokenLink)
-			s.Image = newLink
-		}
+		checkLinkAndUpdate(link, brokenLink, s, &db.Stories[i].Link)
+		checkLinkAndUpdate(image, brokenLink, s, &db.Stories[i].Image)
 	}
 
 	// check if brokenLink is in Majors
-	for _, m := range db.Majors {
+	for i, m := range db.Majors {
 		image := normalizeLink(m.Image)
-		if image == brokenLink {
-			newLink := promptUserForUpdate(m, brokenLink)
-			m.Image = newLink
-		}
-		for _, info := range m.MoreInfo {
+		checkLinkAndUpdate(image, brokenLink, m, &db.Majors[i].Image)
+
+		for j, info := range m.MoreInfo {
 			link := normalizeLink(info.Link)
-			if link == brokenLink {
-				newLink := promptUserForUpdate(m, brokenLink)
-				info.Link = newLink
-			}
+			checkLinkAndUpdate(link, brokenLink, m, &db.Majors[i].MoreInfo[j].Link)
+		}
+	}
+
+}
+
+func checkLinkAndUpdate(link, brokenLink string, data interface{}, dbLink *string) {
+	newLink := ""
+	if link == brokenLink {
+		newLink = promptUserForUpdate(data, brokenLink)
+		if newLink != "" {
+			*dbLink = newLink
 		}
 	}
 }
 
+// prompt user to update broken link
+// returns the updated link or empty string if user wants to skip
 func promptUserForUpdate(data interface{}, brokenLink string) string {
 	reader := bufio.NewReader(os.Stdin)
 
@@ -177,11 +176,18 @@ func promptUserForUpdate(data interface{}, brokenLink string) string {
 
 	fmt.Print("update link: ")
 	resp, _ := reader.ReadString('\n')
-	resp = resp[:len(resp)-2] // remove '\n'
+	resp = strings.TrimSuffix(resp, "\n") // remove '\n'
 
-	if resp == "x\n" || resp == "X\n" {
+	if resp == "x" || resp == "X" {
 		return ""
 	}
 
 	return resp
+}
+
+func saveDBToFile(filename string, db DB) {
+	b, _ := json.MarshalIndent(db, "", "  ")
+	f, _ := os.Create(filename)
+	f.Write(b)
+	f.Close()
 }
