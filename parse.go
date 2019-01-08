@@ -68,7 +68,7 @@ type Project struct {
 	Link   string   `json:"link"`
 }
 
-var db DB = parse()
+var db = parse()
 
 func parse() DB {
 	jsonfile, err := os.Open("database.json")
@@ -77,10 +77,10 @@ func parse() DB {
 	}
 	defer jsonfile.Close()
 
-	jsonfile_bytes, _ := ioutil.ReadAll(jsonfile)
+	jsonfileBytes, _ := ioutil.ReadAll(jsonfile)
 
 	var db DB
-	json.Unmarshal(jsonfile_bytes, &db)
+	json.Unmarshal(jsonfileBytes, &db)
 
 	return db
 }
@@ -149,6 +149,18 @@ func updateLink(brokenLink string) {
 			link := normalizeLink(info.Link)
 			checkLinkAndUpdate(link, brokenLink, m, &db.Majors[i].MoreInfo[j].Link)
 		}
+	}
+
+	// check if brokenLink is in Departments
+	for i, d := range db.Departments {
+		link := normalizeLink(d.(map[string]interface{})["link"].(string))
+		if link == brokenLink {
+			newLink := promptUserForUpdate(d, brokenLink)
+			if newLink != "" {
+				db.Departments[i].(map[string]interface{})["link"] = newLink
+			}
+		}
+
 	}
 
 }
